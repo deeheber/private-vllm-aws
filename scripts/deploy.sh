@@ -59,7 +59,7 @@ deploy_network() {
 
 deploy_compute() {
   if grep -q '"SET_' "$COMPUTE_PARAMS" || grep -q '"ParameterValue": ""' "$COMPUTE_PARAMS"; then
-    echo "$COMPUTE_PARAMS still has placeholder or empty values. See README step 1." >&2
+    echo "$COMPUTE_PARAMS still has placeholder or empty values. See docs/deployment.md step 1." >&2
     exit 1
   fi
 
@@ -67,7 +67,7 @@ deploy_compute() {
   status=$(aws cloudformation describe-stacks --region "$REGION" --stack-name "$COMPUTE_STACK" \
     --query "Stacks[0].StackStatus" --output text 2>/dev/null) || status=NONE
   if [[ "$status" == "ROLLBACK_COMPLETE" ]]; then
-    echo "The first deploy of $COMPUTE_STACK failed and rolled back. Run scripts/teardown.sh, fix the cause, then run this again." >&2
+    echo "The first deploy of $COMPUTE_STACK failed and rolled back. Run scripts/teardown.sh (it also deletes the network stack, if any), fix the cause, then run this again." >&2
     exit 1
   fi
 
@@ -144,7 +144,7 @@ deploy_compute() {
 }
 
 require_file() {
-  [[ -f "$1" ]] || { echo "Missing $1. See README step 1." >&2; exit 1; }
+  [[ -f "$1" ]] || { echo "Missing $1. See docs/deployment.md step 1." >&2; exit 1; }
 }
 
 case "${1:-}" in network|compute|all) require_file "$COMPUTE_PARAMS" ;; esac
