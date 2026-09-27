@@ -4,7 +4,7 @@ Every value in `compute-params.json` feeds the instance or its launch template, 
 
 A replacement means:
 
-- **Downtime.** The new instance pulls the vLLM image and downloads the weights again (about 14 GB), so expect several minutes.
+- **Downtime.** The new instance pulls the vLLM image and downloads the weights again (about 14 GB for gpt-oss-20b), so expect several minutes.
 - **A new instance ID.** `scripts/connect.sh` looks it up each time, but re-run the lookup for any commands you keep around.
 - **On Spot, cancelling the Spot request first.** `deploy.sh` does this for you; see [Why the Spot request gets cancelled](#why-the-spot-request-gets-cancelled).
 
@@ -38,6 +38,12 @@ aws ssm get-parameter --region us-west-2 \
 If it matches `ImageId` in `compute-params.json`, you're current. Otherwise, check the [release notes](https://docs.aws.amazon.com/dlami/latest/devguide/aws-deep-learning-x86-base-gpu-ami-ubuntu-22-04.html) for the driver version. vLLM's default CUDA 13 images need driver R580 or newer. Then set the new ID as `ImageId` and follow the steps above.
 
 A good time to update is when a new vLLM release needs a newer driver, or every month or two for security fixes.
+
+## Faster replacements
+
+A new instance spends a while extracting the vLLM image, limited by the root volume's default 125 MB/s. In September 2026, with vLLM v0.30.0 on g5.xlarge, that took about 10 minutes of a 22-minute first boot. Before a stretch of replacing updates, like swapping models, set `RootVolumeThroughput` to 500 in `compute-params.json`. At September 2026 us-west-2 prices, that costs about $15 a month and should cut first boot by roughly 7 minutes. Stop/start only gets about a minute faster.
+
+Changing it replaces the instance, so raise it in the same update as the first swap and set it back to 125 with the last one.
 
 ## Why the Spot request gets cancelled
 

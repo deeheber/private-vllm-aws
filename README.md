@@ -110,7 +110,7 @@ scripts/deploy.sh compute
 
 ## 3. Check that it works
 
-The first boot pulls the image and downloads about 14 GB of weights. Expect several minutes before the model answers.
+The first boot pulls the image and downloads the model weights (about 14 GB for gpt-oss-20b). Expect several minutes before the model answers.
 
 1. **The model has loaded.** Run `scripts/connect.sh shell`, then `sudo docker logs -f vllm` on the instance. If the session fails with `TargetNotConnected`, the SSM agent hasn't registered yet; wait a minute and retry.
 2. **The endpoint answers.** Run `scripts/connect.sh` in its own terminal to open the tunnel to port 8000, then run the commands below. If 8000 is taken on your laptop, pass another local port, like `scripts/connect.sh 9000`, and use it in the commands.

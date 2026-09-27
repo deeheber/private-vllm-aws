@@ -41,9 +41,20 @@ Parameters:
     Description: >-
       Deep Learning Base OSS NVIDIA Driver GPU AMI (Ubuntu 22.04). Pinned so the
       AMI changes only when you change it; see docs/updating-compute.md.
+  RootVolumeThroughput:
+    Type: Number
+    Default: 125
+    MinValue: 125
+    MaxValue: 1000
+    Description: >-
+      Root volume throughput in MB/s. 125 is included with gp3; more speeds up
+      setting up a new instance and loading model weights (about $0.04 per extra
+      MB/s per month).
 
 Conditions:
   IsSpot: !Equals [!Ref PurchaseOption, spot]
+  # Unset at the default: setting Throughput changes the launch template, which replaces the instance.
+  HasCustomThroughput: !Not [!Equals [!Ref RootVolumeThroughput, 125]]
 
 Resources:
   InstanceRole:
@@ -92,6 +103,7 @@ Resources:
             Ebs:
               VolumeSize: 150
               VolumeType: gp3
+              Throughput: !If [HasCustomThroughput, !Ref RootVolumeThroughput, !Ref AWS::NoValue]
               DeleteOnTermination: true
         InstanceMarketOptions: !If
           - IsSpot

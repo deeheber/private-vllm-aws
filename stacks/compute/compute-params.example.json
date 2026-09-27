@@ -32,6 +32,10 @@
     "ParameterValue": "SET_FROM_DLAMI_LOOKUP"
   },
   {
+    "ParameterKey": "RootVolumeThroughput",
+    "ParameterValue": "125"
+  },
+  {
     "ParameterKey": "ApiKey",
     "ParameterValue": ""
   }
