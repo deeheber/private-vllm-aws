@@ -1,0 +1,38 @@
+[
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "SET_AFTER_NETWORK_DEPLOY"
+  },
+  {
+    "ParameterKey": "SubnetId",
+    "ParameterValue": "SET_AFTER_NETWORK_DEPLOY"
+  },
+  {
+    "ParameterKey": "InstanceType",
+    "ParameterValue": "g5.xlarge"
+  },
+  {
+    "ParameterKey": "PurchaseOption",
+    "ParameterValue": "spot"
+  },
+  {
+    "ParameterKey": "ModelId",
+    "ParameterValue": "openai/gpt-oss-20b"
+  },
+  {
+    "ParameterKey": "ServedModelName",
+    "ParameterValue": "gpt-oss-20b"
+  },
+  {
+    "ParameterKey": "VllmTag",
+    "ParameterValue": "v0.30.0"
+  },
+  {
+    "ParameterKey": "ImageId",
+    "ParameterValue": "SET_FROM_DLAMI_LOOKUP"
+  },
+  {
+    "ParameterKey": "ApiKey",
+    "ParameterValue": ""
+  }
+]

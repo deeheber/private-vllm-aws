@@ -1,0 +1,3 @@
+[
+  { "ParameterKey": "AvailabilityZone", "ParameterValue": "SET_FROM_SPOT_PLACEMENT_SCORES" }
+]

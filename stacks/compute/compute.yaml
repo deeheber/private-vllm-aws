@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Single private GPU instance running vLLM in Docker, reached through SSM port
+  forwarding. No inbound rules, no public IP. Network-agnostic: pass any private
+  subnet with outbound HTTPS.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet with a route to a NAT (or equivalent egress).
+  InstanceType:
+    Type: String
+    Default: g5.xlarge
+    AllowedValues: [g5.xlarge, g6.xlarge, g6e.xlarge]
+  PurchaseOption:
+    Type: String
+    Default: spot
+    AllowedValues: [spot, ondemand]
+  ModelId:
+    Type: String
+    Default: openai/gpt-oss-20b
+  ServedModelName:
+    Type: String
+    Default: gpt-oss-20b
+    AllowedPattern: ^[^/]+$
+    ConstraintDescription: Must not contain "/" (vLLM rejects it for the Anthropic API).
+  VllmTag:
+    Type: String
+    Description: Pinned vllm/vllm-openai image tag.
+  ApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: >-
+      Bearer token for vLLM --api-key. NoEcho hides it from stack output but not
+      from the launch template's user data. Use an SSM SecureString for work.
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: >-
+      Deep Learning Base OSS NVIDIA Driver GPU AMI (Ubuntu 22.04). Pinned so the
+      AMI changes only when you change it; see docs/updating-compute.md.
+
+Conditions:
+  IsSpot: !Equals [!Ref PurchaseOption, spot]
+
+Resources:
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: vLLM host - no inbound, access via SSM only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-vllm
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Arn: !GetAtt InstanceProfile.Arn
+        MetadataOptions:
+          HttpTokens: required
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 150
+              VolumeType: gp3
+              DeleteOnTermination: true
+        InstanceMarketOptions: !If
+          - IsSpot
+          - MarketType: spot
+            SpotOptions:
+              SpotInstanceType: persistent
+              InstanceInterruptionBehavior: stop
+              ValidUntil: "2027-12-31T23:59:59Z"
+          - !Ref AWS::NoValue
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            set -euo pipefail
+            mkdir -p /opt/hf-cache
+            systemctl enable --now docker
+            docker run -d --name vllm --restart unless-stopped \
+              --runtime nvidia --gpus all --ipc=host \
+              -p 127.0.0.1:8000:8000 \
+              -e VLLM_NO_USAGE_STATS=1 \
+              -v /opt/hf-cache:/root/.cache/huggingface \
+              vllm/vllm-openai:${VllmTag} \
+              ${ModelId} \
+              --served-model-name ${ServedModelName} \
+              --max-model-len 65536 \
+              --api-key ${ApiKey} \
+              --enable-auto-tool-choice \
+              --tool-call-parser openai
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-${ServedModelName}
+
+Outputs:
+  InstanceId:
+    Value: !Ref Instance
+  AvailabilityZone:
+    Value: !GetAtt Instance.AvailabilityZone
