@@ -1,6 +1,6 @@
 # private-vllm-aws
 
-CloudFormation for a private, self-hosted LLM endpoint on AWS, for coding clients like Claude Code: one GPU EC2 instance running vLLM in Docker, reached from your laptop through an SSM port-forwarding tunnel. The instance has no public IP and no inbound rules.
+CloudFormation for a private, self-hosted LLM endpoint on AWS, for coding clients like Claude Code: one GPU EC2 instance running [vLLM in Docker](#model-server), reached from your laptop through an SSM port-forwarding tunnel. The instance has no public IP and no inbound rules.
 
 The defaults serve gpt-oss-20b on a g5.xlarge Spot instance in us-west-2, using `vllm/vllm-openai:v0.30.0`.
 
