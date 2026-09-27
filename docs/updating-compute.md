@@ -5,7 +5,7 @@ Every value in `compute-params.json` feeds the instance or its launch template, 
 A replacement means:
 
 - **Downtime.** The new instance pulls the vLLM image and downloads the weights again (about 14 GB), so expect several minutes.
-- **A new instance ID.** Re-run the `INSTANCE_ID` lookup for any commands you keep around.
+- **A new instance ID.** `scripts/connect.sh` looks it up each time, but re-run the lookup for any commands you keep around.
 - **On Spot, cancelling the Spot request first.** `deploy.sh` does this for you; see [Why the Spot request gets cancelled](#why-the-spot-request-gets-cancelled).
 
 Batch changes into one update where you can, for example a new AMI and a new vLLM tag together, so the instance is replaced once.

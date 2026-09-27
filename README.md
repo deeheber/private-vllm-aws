@@ -29,15 +29,26 @@ For predictable availability, set `PurchaseOption` to `ondemand` in `compute-par
 ## Before you start
 
 - **GPU quota.** New accounts usually have 0 vCPUs for G instances. Request 8 for "Running On-Demand G and VT instances" (L-DB2E81BA) and "All G and VT Spot Instance Requests" (L-3819A6DF) in your region, and wait for approval. One xlarge instance uses 4, but an update that replaces the instance runs the old and new ones together for a few minutes.
-- **Tools on your laptop:** AWS CLI v2, `jq`, `openssl`, and the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
+- **AWS credentials.** The CLI needs credentials that can manage CloudFormation, EC2, IAM, and Systems Manager, such as an admin profile. If you use named profiles, set `AWS_PROFILE`.
 - **Region.** Everything defaults to us-west-2. For another region, set `AWS_REGION` before running the scripts, and change `--region` in the commands below.
+
+Tools on your laptop:
+
+| Tool | Used for | Install on macOS |
+|---|---|---|
+| AWS CLI v2 | everything | `brew install awscli` |
+| Session Manager plugin | `scripts/connect.sh` | `brew install --cask session-manager-plugin` |
+| `jq` | the scripts and setup commands | `brew install jq` |
+| `openssl`, `curl` | the API key and the step 3 checks | included with macOS |
+
+On Linux or Windows, see the install guides for the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
 
 ## Choose a deploy path
 
 - **Standalone VPC:** deploy both stacks. `network.yaml` creates a single-AZ VPC with a public subnet for a NAT gateway and a private subnet for the instance. Use this path if you don't already have a VPC with private subnets.
 - **Existing VPC:** deploy only `compute.yaml`, into a private subnet that already has outbound HTTPS through a NAT or transit gateway.
 
-Each stack's template and parameter files are in `stacks/network/` and `stacks/compute/`. The deploy and teardown scripts are in `scripts/`. Run all commands from the repo root.
+Each stack's template and parameter files are in `stacks/network/` and `stacks/compute/`. The scripts to deploy, connect, and tear down are in `scripts/`. Run all commands from the repo root.
 
 ## 1. Create your parameter files
 
@@ -101,29 +112,17 @@ scripts/deploy.sh compute
 
 The first boot pulls the image and downloads about 14 GB of weights. Expect several minutes before the model answers.
 
-```bash
-INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
-  --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
+1. **The model has loaded.** Run `scripts/connect.sh shell`, then `sudo docker logs -f vllm` on the instance. If the session fails with `TargetNotConnected`, the SSM agent hasn't registered yet; wait a minute and retry.
+2. **The endpoint answers.** Run `scripts/connect.sh` in its own terminal to open the tunnel to port 8000, then run the commands below. If 8000 is taken on your laptop, pass another local port, like `scripts/connect.sh 9000`, and use it in the commands.
 
-# 1. The instance is registered with Systems Manager (expect "Online")
-aws ssm describe-instance-information --region us-west-2 \
-  --filters Key=InstanceIds,Values=$INSTANCE_ID --query "InstanceInformationList[].PingStatus"
+   ```bash
+   curl -i localhost:8000/health
 
-# 2. The model has loaded: open a shell, then run `sudo docker logs -f vllm`
-aws ssm start-session --region us-west-2 --target $INSTANCE_ID
-
-# 3. The endpoint answers through a tunnel (leave the tunnel open in its own terminal)
-aws ssm start-session --region us-west-2 --target $INSTANCE_ID \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["8000"],"localPortNumber":["8000"]}'
-curl -i localhost:8000/health
-
-# 4. An authenticated request to the Messages API returns a reply
-KEY=$(jq -r '.[] | select(.ParameterKey=="ApiKey").ParameterValue' stacks/compute/compute-params.json)
-curl -s localhost:8000/v1/messages \
-  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"model":"gpt-oss-20b","max_tokens":256,"messages":[{"role":"user","content":"Reply with OK."}]}'
-```
+   KEY=$(jq -r '.[] | select(.ParameterKey=="ApiKey").ParameterValue' stacks/compute/compute-params.json)
+   curl -s localhost:8000/v1/messages \
+     -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+     -d '{"model":"gpt-oss-20b","max_tokens":256,"messages":[{"role":"user","content":"Reply with OK."}]}'
+   ```
 
 `/health` only shows that the server has started. Neither check covers streaming or tool calls; connecting a client such as Claude Code does.
 
@@ -131,9 +130,9 @@ The API key protects only paths under `/v1`, `/v2`, and `/inference`. Other vLLM
 
 ## Stop and start
 
-These use `INSTANCE_ID` from step 3.
-
 ```bash
+INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
+  --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
 aws ec2 stop-instances  --region us-west-2 --instance-ids $INSTANCE_ID
 aws ec2 start-instances --region us-west-2 --instance-ids $INSTANCE_ID
 ```
