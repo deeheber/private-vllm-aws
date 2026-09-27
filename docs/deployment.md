@@ -125,7 +125,7 @@ The first boot pulls the image and downloads the model weights (about 14 GB for 
 
 ## 4. Connect a client
 
-Coming soon: settings for Claude Code and Codex.
+For Claude Code, see [Claude Code](claude-code.md). Codex setup is coming later.
 
 ## After deploying
 

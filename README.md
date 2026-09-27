@@ -10,12 +10,12 @@ Stopping the instance doesn't stop all charges: the NAT gateway and root volume 
 
 For pauses of more than a few weeks, tear down both stacks with `scripts/teardown.sh`.
 
-| Item | Rate | Bills when |
-|---|---|---|
-| g5.xlarge Spot | about $0.48/hour | the instance is running |
-| g5.xlarge On-Demand, if you switch | about $1.01/hour | the instance is running |
-| NAT gateway and Elastic IP | about $37/month | the network stack exists (standalone VPC only) |
-| 150 GB gp3 root volume | about $12/month | the compute stack exists |
+| Item                               | Rate             | Bills when                                     |
+| ---------------------------------- | ---------------- | ---------------------------------------------- |
+| g5.xlarge Spot                     | about $0.48/hour | the instance is running                        |
+| g5.xlarge On-Demand, if you switch | about $1.01/hour | the instance is running                        |
+| NAT gateway and Elastic IP         | about $37/month  | the network stack exists (standalone VPC only) |
+| 150 GB gp3 root volume             | about $12/month  | the compute stack exists                       |
 
 Each new instance also downloads the image and weights through the NAT gateway, at $0.045/GB, which comes to about $1. Rates are for us-west-2 as of September 2026.
 
@@ -26,6 +26,8 @@ First, check that your account has quota for GPU (G-family) instances in your re
 There are two ways to deploy: a standalone VPC, which deploys both the network and compute stacks, or an existing VPC with private subnets, which deploys only the compute stack.
 
 [Deployment](docs/deployment.md) has the step-by-step instructions, and [Updating the compute stack](docs/updating-compute.md) covers changes after that.
+
+To use the endpoint from the Claude Code CLI, see [Claude Code](docs/claude-code.md).
 
 ## Spot behavior
 
