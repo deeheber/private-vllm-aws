@@ -1,6 +1,6 @@
 # private-vllm-aws
 
-Run a private coding-model endpoint on AWS with CloudFormation: one GPU EC2 instance running [vLLM in Docker](#why-vllm). Connect from your laptop through an AWS Systems Manager (SSM) port-forwarding tunnel. The instance has no public IP and no inbound rules.
+Run your own LLM on AWS. One CloudFormation deployment gives you a GPU instance serving [vLLM in Docker](#why-vllm), reached from your laptop through an AWS Systems Manager (SSM) port-forwarding tunnel. The instance has no public IP and no inbound rules, and inference runs entirely inside your AWS account. Tested with the Claude Code CLI.
 
 The defaults serve gpt-oss-20b on a g5.xlarge Spot instance in us-west-2, using `vllm/vllm-openai:v0.30.0`. You can [switch models](docs/switching-models.md) without replacing the instance; larger models need a g6e.xlarge.
 
@@ -76,7 +76,7 @@ Downloads through the NAT cost $0.045/GB (about $0.60 for gpt-oss-20b's weights)
 The model runs in [vLLM](https://docs.vllm.ai), using the official `vllm/vllm-openai` Docker image. It provides:
 
 - **Many requests at once on one GPU.** vLLM batches concurrent requests against one copy of the model, whether they come from several people or one Claude Code session running several at once.
-- **The APIs the clients need.** It serves the Anthropic Messages API for Claude Code and the Responses API for Codex, with a tool-call parser for each model family.
+- **The APIs the clients need.** It serves the Anthropic Messages API, which Claude Code uses, and the OpenAI Responses API, with a tool-call parser for each model family.
 - **Official checkpoints.** Many open models publish FP8, MXFP4, or NVFP4 weights that vLLM loads straight from Hugging Face, with no conversion.
 - **A path to ECS.** [ECS Managed Instances](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ManagedInstances.html) runs containers, so the same pinned image and startup flags carry over to a shared service.
 

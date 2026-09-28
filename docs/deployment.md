@@ -130,7 +130,7 @@ The first boot pulls the vLLM image and downloads the model weights (about 14 GB
 
 ## 4. Connect a client
 
-For Claude Code, see [Claude Code](claude-code.md). Codex setup is coming later.
+For Claude Code, see [Claude Code](claude-code.md). Other clients may follow if there's interest.
 
 ## After deploying
 
