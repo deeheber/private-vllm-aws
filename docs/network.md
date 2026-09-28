@@ -22,6 +22,20 @@ If a compute deploy fails on capacity:
 - **A first deploy** ends in `ROLLBACK_COMPLETE`. Delete only the compute stack, as `deploy.sh` explains, then retry.
 - **`UPDATE_ROLLBACK_FAILED`** needs `aws cloudformation continue-update-rollback --stack-name vllm-compute` before anything else.
 
+## Finding capacity
+
+Larger GPU types can have no On-Demand capacity in any AZ of a region for days. Instead of retrying deploys, which take minutes each to fail, look for capacity with a capacity reservation:
+
+```bash
+scripts/find-capacity.sh us-west-2 us-east-1
+```
+
+It tries each AZ that offers the instance type in `compute-params.json` and stops at the first success. A failed attempt takes seconds and costs nothing. A successful one creates a reservation, which an On-Demand instance of that type in that AZ uses automatically.
+
+- **A reservation bills from the moment it's created,** at the On-Demand rate, whether or not an instance uses it. It ends after an hour, enough to deploy right away; cancel it early if you don't deploy. Once it ends, a running instance keeps running, but a later stop and start needs capacity again.
+- **Only On-Demand can use it.** Spot can't be reserved, so for Spot, check placement scores instead (see [Deployment](deployment.md#availability-zone)).
+- **Before trying another region,** check its G quota there (see [Deployment](deployment.md#before-you-start)).
+
 ## One NAT gateway: the trade-off
 
 One NAT gateway costs one hourly charge, about $33 a month plus its Elastic IP, however many AZs route through it. The costs of sharing it:

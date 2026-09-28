@@ -26,28 +26,28 @@ Downloads through the NAT cost $0.045/GB (about $0.60 for gpt-oss-20b's weights)
 
 - [Deployment](docs/deployment.md): start here. GPU quota (many accounts start with none), then deploying into a new or existing VPC.
 - [Switching models](docs/switching-models.md): changing the model
-- [Network](docs/network.md): moving to another AZ
+- [Network](docs/network.md): moving to another AZ, and finding capacity when a GPU type isn't available
 - [Updating the compute stack](docs/updating-compute.md): other changes
 - [Claude Code](docs/claude-code.md): using the endpoint from the Claude Code CLI
 
 ## Daily use
 
-Once it's deployed, look up the instance ID:
+1. Once it's deployed, look up the instance ID:
 
-```bash
-INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
-  --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
-```
+   ```bash
+   INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
+   --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
+   ```
 
-1. Start the instance. The model is ready about 3 minutes later. On Spot, a start right after a stop fails for a few minutes; see [Spot behavior](#spot-behavior).
+2. Start the instance. The model is ready about 3 minutes later. On Spot, a start right after a stop fails for a few minutes; see [Spot behavior](#spot-behavior).
 
    ```bash
    aws ec2 start-instances --region us-west-2 --instance-ids $INSTANCE_ID
    ```
 
-2. Open the tunnel in a second terminal and leave it running: `scripts/connect.sh`.
-3. Set up the alias in [Claude Code](docs/claude-code.md#run-it), then run `claude-local` from your project directory.
-4. When you're done, close the tunnel and stop the instance:
+3. Open the tunnel in a second terminal and leave it running: `scripts/connect.sh`.
+4. Set up the alias in [Claude Code](docs/claude-code.md#run-it), then run `claude-local` from your project directory.
+5. When you're done, close the tunnel and stop the instance:
 
    ```bash
    aws ec2 stop-instances --region us-west-2 --instance-ids $INSTANCE_ID
