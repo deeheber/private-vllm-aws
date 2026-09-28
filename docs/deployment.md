@@ -15,7 +15,8 @@ Tools on your laptop:
 | AWS CLI v2 | everything | `brew install awscli` | [install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | Session Manager plugin | `scripts/connect.sh` | `brew install --cask session-manager-plugin` | [install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) |
 | `jq` | the scripts and setup commands | `brew install jq` | your package manager, e.g. `apt install jq` |
-| `python3`, `curl` | `scripts/deploy.sh` checks `ExtraVllmArgs`; the step 3 checks | included (macOS asks to install the command line tools the first time) | usually included |
+| `python3` | `scripts/deploy.sh`, to check `ExtraVllmArgs` | included (macOS asks to install the command line tools the first time) | usually included |
+| `curl` | step 3 below and `scripts/claude-local.sh` | included | usually included |
 
 The scripts need bash, so on Windows everything runs in [WSL](https://learn.microsoft.com/windows/wsl/install):
 
@@ -108,10 +109,10 @@ scripts/deploy.sh compute
 
 ## 3. Check that it works
 
-The first boot pulls the vLLM image and downloads the model weights (about 14 GB for gpt-oss-20b). Expect about 10 minutes before the model answers with `RootVolumeThroughput` at 500, or about 20 at 125.
+The first boot pulls the vLLM image and downloads the model weights (about 14 GB for gpt-oss-20b). Expect about 10 minutes before the model answers (about 20 if you set `RootVolumeThroughput` to 125).
 
 1. **The model has loaded.** Run `scripts/connect.sh shell`, then `sudo journalctl -u vllm -f` on the instance, and wait for `Application startup complete`. The journal also shows errors from reading the model profile or API key. If the session fails with `TargetNotConnected`, the SSM agent hasn't registered yet; wait a minute and retry.
-2. **The endpoint answers.** Run `scripts/connect.sh` in its own terminal to open the tunnel to port 8000, then run the commands below. If 8000 is taken on your laptop, pass another local port, like `scripts/connect.sh 9000`, and use it in the commands.
+2. **The endpoint answers.** Run `scripts/connect.sh` in its own terminal to open the tunnel to port 8000, then run the commands below, with your `ServedModelName` as `"model"`. If 8000 is taken on your laptop, pass another local port, like `scripts/connect.sh 9000`, and use it in the commands.
 
    ```bash
    curl -i localhost:8000/health
@@ -135,14 +136,7 @@ For Claude Code, see [Claude Code](claude-code.md). Codex setup is coming later.
 
 ### Stop and start
 
-```bash
-INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
-  --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue" --output text)
-aws ec2 stop-instances  --region us-west-2 --instance-ids $INSTANCE_ID
-aws ec2 start-instances --region us-west-2 --instance-ids $INSTANCE_ID
-```
-
-The model reloads on every start, using the model profile deployed at that time, so expect a few minutes after the instance shows `running`. On Spot, a start can fail; see [Spot behavior](../README.md#spot-behavior).
+The commands are in [Daily use](../README.md#daily-use). The model reloads on every start, using the model profile deployed at that time, so expect a few minutes after the instance shows `running`. On Spot, a start can fail; see [Spot behavior](../README.md#spot-behavior).
 
 ### Updating the stack
 

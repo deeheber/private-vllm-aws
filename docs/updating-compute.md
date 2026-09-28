@@ -8,7 +8,7 @@ What an update does depends on which values in `compute-params.json` change:
 A replacement means:
 
 - **Downtime.** The new instance pulls the vLLM image and downloads the weights again (about 14 GB for gpt-oss-20b), so expect about 10 minutes, or about 20 with `RootVolumeThroughput` at 125.
-- **A new instance ID.** `scripts/connect.sh` looks it up each time, but re-run the `INSTANCE_ID=` lookup in [Stop and start](deployment.md#stop-and-start) for any commands you keep around.
+- **A new instance ID.** `scripts/connect.sh` looks it up each time, but re-run the `INSTANCE_ID=` lookup in [Daily use](../README.md#daily-use) for any commands you keep around.
 - **On Spot, cancelling the Spot request first.** `deploy.sh` does this for you; see [Why the Spot request gets cancelled](#why-the-spot-request-gets-cancelled).
 
 Batch replacing changes into one update where you can, for example a new AMI and a new instance type together, so the instance is replaced once.
@@ -19,16 +19,18 @@ Batch replacing changes into one update where you can, for example a new AMI and
 2. Run `scripts/deploy.sh compute`. It asks before replacing the instance and handles the Spot request. If only the model profile changed, it says to run `scripts/switch-model.sh`.
 3. Run the checks in [Check that it works](deployment.md#3-check-that-it-works).
 
-If the update fails and rolls back, fix the cause and run the script again. The old instance can no longer be stopped once its Spot request is cancelled.
+If the update fails and rolls back, fix the cause and run the script again. On Spot, the old instance's request is already cancelled, so it keeps running and billing until the rerun replaces it. It can't be stopped, only terminated.
 
 ## Updating vLLM
 
-`VllmTag` pins the `vllm/vllm-openai` image. To upgrade, deploy the new tag, then run `scripts/switch-model.sh`. The first start on a new tag pulls its image, which took about 15 minutes for v0.30.0. The old image stays on disk until you remove it; `scripts/switch-model.sh list` shows both.
+`VllmTag` pins the `vllm/vllm-openai` image.
 
-Set it to a newer tag from the [vLLM releases](https://github.com/vllm-project/vllm/releases). Before deploying, check the release notes for:
+1. Pick a newer tag from the [vLLM releases](https://github.com/vllm-project/vllm/releases) and check its release notes for:
+   - **The CUDA version of the default image.** If it needs a newer NVIDIA driver than your AMI has, update the AMI too (see below). That replaces the instance.
+   - **Breaking changes to the flags** in your profile, such as `--tool-call-parser` or anything in `ExtraVllmArgs`.
+2. Set `VllmTag`, run `scripts/deploy.sh compute`, then `scripts/switch-model.sh`.
 
-- **The CUDA version of the default image.** If it needs a newer NVIDIA driver than your AMI has, update the AMI too (see below). That replaces the instance.
-- **Breaking changes to the flags** in your profile, such as `--tool-call-parser` or anything in `ExtraVllmArgs`.
+The first start on a new tag pulls its image, which took about 5 minutes for v0.30.0 at 500 MB/s. The old image stays on disk until you remove it; `scripts/switch-model.sh list` shows both.
 
 ## Updating the AMI
 

@@ -5,7 +5,7 @@ The model profile is stored in an SSM parameter, not in the instance's launch te
 ## Switch
 
 1. Edit the profile values in `compute-params.json` (see [The profile](#the-profile) and [Example profiles](#example-profiles)).
-2. Run `scripts/deploy.sh compute`. The change set updates only the `ModelProfile` parameter, and the script doesn't ask about replacing the instance. If it does ask, something other than the profile changed; answer `n` and check the file.
+2. Run `scripts/deploy.sh compute`. It shouldn't ask about replacing the instance. If it does, something other than the profile changed; answer `n` and check the file.
 3. Run `scripts/switch-model.sh`. It restarts vLLM, then lists what's running and cached (see [Cached models and disk space](#cached-models-and-disk-space)).
 
 The restart returns right away, but the model isn't ready until it has loaded, which includes downloading its weights the first time you use it. To watch, run `scripts/connect.sh shell`, then `sudo journalctl -u vllm -f`, and wait for `Application startup complete`.
@@ -49,7 +49,7 @@ A model's directory holds only links; its files are in a shared `/opt/hf-cache/h
 
 ## Example profiles
 
-With vLLM v0.30.0. The first two are for a g5.xlarge (A10G, 24 GB); the others need a g6e.xlarge (L40S, 48 GB). Changing `InstanceType` replaces the instance; the other rows are the profile.
+With vLLM v0.30.0. The first two are for a g5.xlarge (A10G, 24 GB); the others need a g6e.xlarge (L40S, 48 GB). Moving to a g6e.xlarge means setting `InstanceType` to `g6e.xlarge` and `PurchaseOption` to `ondemand`, which [replaces the instance](updating-compute.md) and needs On-Demand G quota (see [Deployment](deployment.md#before-you-start)).
 
 | Parameter | gpt-oss-20b (default, tested) | Qwen3.5-9B, FP8 build (tested) | Devstral Small 2 24B (untested) | Muse Glimmer 30B, FP8 build (untested) |
 |---|---|---|---|---|

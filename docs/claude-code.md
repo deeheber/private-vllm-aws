@@ -35,7 +35,7 @@ In the session, `/status` should show the `http://localhost:<port>` base URL, an
 | `ANTHROPIC_AUTH_TOKEN` | The vLLM API key, sent as a bearer token. It takes precedence over a saved claude.ai login. `ANTHROPIC_API_KEY` sends a different header and fails. |
 | `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL` | Every model choice, including background tasks like session titles, resolves to the served model. |
 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | Claude Code assumes a 200K window for model names it doesn't recognize. This must match the server's `--max-model-len`, or Claude Code never compacts and the server rejects long prompts. |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Claude Code reserves room for the reply out of the window, so a smaller cap leaves more for the conversation (8,192). |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS` | Caps replies at 8,192 tokens. Claude Code reserves room for the reply out of the window, so a smaller cap leaves more for the conversation. |
 | `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING`, `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` | Stop Claude Code sending request fields vLLM doesn't accept. |
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | Turns off telemetry and other requests to Anthropic that aren't needed. |
 | `CLAUDE_CODE_DISABLE_AUTO_MEMORY` | Turns off auto memory, which is shared with your hosted sessions for the same repo (and all its git worktrees). A weaker model can save wrong lessons there that your normal sessions then load. CLAUDE.md files still load. |
