@@ -1,3 +1,6 @@
 [
-  { "ParameterKey": "AvailabilityZone", "ParameterValue": "SET_FROM_SPOT_PLACEMENT_SCORES" }
+  { "ParameterKey": "AvailabilityZone", "ParameterValue": "SET_TO_YOUR_AZ" },
+  { "ParameterKey": "PrivateSubnetAz2", "ParameterValue": "" },
+  { "ParameterKey": "PrivateSubnetAz3", "ParameterValue": "" },
+  { "ParameterKey": "PrivateSubnetAz4", "ParameterValue": "" }
 ]

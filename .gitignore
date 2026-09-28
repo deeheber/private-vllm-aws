@@ -1,5 +1,5 @@
-# Real parameter files: your AZ, VPC and subnet IDs, and the ApiKey
+# Real parameter files: your AZ, VPC, subnet and AMI IDs
 stacks/network/network-params.json
 stacks/compute/compute-params.json
-# Written during the deployment steps; can hold the ApiKey
+# Written during the deployment steps
 *.tmp

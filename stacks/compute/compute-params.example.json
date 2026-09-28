@@ -16,6 +16,18 @@
     "ParameterValue": "spot"
   },
   {
+    "ParameterKey": "ImageId",
+    "ParameterValue": "SET_FROM_DLAMI_LOOKUP"
+  },
+  {
+    "ParameterKey": "RootVolumeThroughput",
+    "ParameterValue": "500"
+  },
+  {
+    "ParameterKey": "VllmTag",
+    "ParameterValue": "v0.30.0"
+  },
+  {
     "ParameterKey": "ModelId",
     "ParameterValue": "openai/gpt-oss-20b"
   },
@@ -24,19 +36,15 @@
     "ParameterValue": "gpt-oss-20b"
   },
   {
-    "ParameterKey": "VllmTag",
-    "ParameterValue": "v0.30.0"
+    "ParameterKey": "ToolCallParser",
+    "ParameterValue": "openai"
   },
   {
-    "ParameterKey": "ImageId",
-    "ParameterValue": "SET_FROM_DLAMI_LOOKUP"
+    "ParameterKey": "MaxModelLen",
+    "ParameterValue": "65536"
   },
   {
-    "ParameterKey": "RootVolumeThroughput",
-    "ParameterValue": "125"
-  },
-  {
-    "ParameterKey": "ApiKey",
+    "ParameterKey": "ExtraVllmArgs",
     "ParameterValue": ""
   }
 ]

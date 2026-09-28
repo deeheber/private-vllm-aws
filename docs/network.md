@@ -1,0 +1,40 @@
+# Network
+
+`stacks/network/network.yaml` creates a standalone VPC with one NAT gateway, in the AZ set by `AvailabilityZone`, and private subnets in up to four AZs. All the private subnets route outbound traffic through that one NAT. Skip this stack if you bring your own VPC.
+
+## Switching AZs
+
+A launch can fail because EC2 has no capacity for the instance type in the current AZ. To move the instance to another AZ:
+
+```bash
+scripts/deploy.sh use-az us-west-2b
+scripts/deploy.sh compute
+```
+
+`use-az` sets `SubnetId` in `compute-params.json` to the private subnet in that AZ. The deploy replaces the instance, as any AZ move must, because the root volume belongs to one AZ.
+
+- `use-az` only moves the instance. The NAT stays in `AvailabilityZone`.
+- The other subnets come from `PrivateSubnetAz2`, `PrivateSubnetAz3`, and `PrivateSubnetAz4` in `network-params.json`. Don't change or clear one while the instance is in that subnet: the subnet would be replaced or deleted, and the update fails.
+
+If a compute deploy fails on capacity:
+
+- **An update** rolls back to `UPDATE_ROLLBACK_COMPLETE`. Wait for that state, then `use-az` another AZ and deploy again.
+- **A first deploy** ends in `ROLLBACK_COMPLETE`. Delete only the compute stack, as `deploy.sh` explains, then retry.
+- **`UPDATE_ROLLBACK_FAILED`** needs `aws cloudformation continue-update-rollback --stack-name vllm-compute` before anything else.
+
+## One NAT gateway: the trade-off
+
+One NAT gateway costs one hourly charge, about $33 a month plus its Elastic IP, however many AZs route through it. The costs of sharing it:
+
+- **Cross-AZ traffic.** When the instance isn't in the NAT's AZ, outbound traffic pays about $0.01/GB each way between AZs, around $0.28 for gpt-oss-20b's 14 GB of weights.
+- **Two AZs to depend on.** With the instance in us-west-2b and the NAT in us-west-2a, losing 2b loses the instance, and losing 2a loses outbound access, including SSM. This repo accepts that for the lower cost.
+
+CDK's `Vpc` supports the same layout: you can set `natGateways` "lower than the number of Availability Zones in your VPC in order to save on NAT cost. Be aware you may be charged for cross-AZ data traffic instead," and "this may have availability implications."
+
+## Removing the single-AZ dependency
+
+- **A NAT gateway per AZ.** The standard production layout: each AZ's private subnet routes through its own NAT, at one hourly charge per AZ.
+- **A regional NAT gateway** (`AvailabilityMode: regional`). One NAT that spans AZs, with no public subnet or hand-allocated Elastic IPs.
+  - It's billed per AZ it runs in, and expanding into a new AZ can take up to 60 minutes.
+  - AWS's docs differ on what makes it run in an AZ: the [VPC User Guide](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html) says a network interface there, while the [CloudFormation reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-ec2-natgateway.html) says every AZ with a subnet. With subnets in four AZs, that difference could mean four hourly charges.
+  - Untested here.

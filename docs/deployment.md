@@ -1,11 +1,11 @@
 # Deployment
 
-Before deploying, read [Spot behavior](../README.md#spot-behavior), since Spot can stop the instance at short notice, and [Security notes](../README.md#security-notes) for what keeps the endpoint private.
+Before deploying, read [Security notes](../README.md#security-notes) for what keeps the endpoint private, and [Spot behavior](../README.md#spot-behavior) if you plan to use Spot.
 
 ## Before you start
 
 - **GPU quota.** Check your quota for G instances in your region, since many accounts start with 0 vCPUs. You need 8 in the quota for your purchase option: "All G and VT Spot Instance Requests" (L-3819A6DF) for the default Spot, or "Running On-Demand G and VT instances" (L-DB2E81BA) for On-Demand. If it's lower, request an increase and wait for approval. One xlarge instance uses 4, but an update that replaces the instance runs the old and new ones together for a few minutes.
-- **AWS credentials.** The CLI needs credentials that can manage CloudFormation, EC2, IAM, and Systems Manager, such as an admin profile. If you use named profiles, set `AWS_PROFILE`.
+- **AWS credentials.** The CLI needs credentials that can manage CloudFormation, EC2, IAM, Systems Manager, and Secrets Manager, such as an admin profile. If you use named profiles, set `AWS_PROFILE`.
 - **Region.** Everything defaults to us-west-2. For another region, set `AWS_REGION` before running the scripts, and change `us-west-2` everywhere it appears in the commands in these docs.
 
 Tools on your laptop:
@@ -15,7 +15,7 @@ Tools on your laptop:
 | AWS CLI v2 | everything | `brew install awscli` | [install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | Session Manager plugin | `scripts/connect.sh` | `brew install --cask session-manager-plugin` | [install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) |
 | `jq` | the scripts and setup commands | `brew install jq` | your package manager, e.g. `apt install jq` |
-| `openssl`, `curl` | the API key and the step 3 checks | included | usually included |
+| `python3`, `curl` | `scripts/deploy.sh` checks `ExtraVllmArgs`; the step 3 checks | included (macOS asks to install the command line tools the first time) | usually included |
 
 The scripts need bash, so on Windows everything runs in [WSL](https://learn.microsoft.com/windows/wsl/install):
 
@@ -26,7 +26,7 @@ The scripts need bash, so on Windows everything runs in [WSL](https://learn.micr
 
 ## Choose a deploy path
 
-- **Standalone VPC:** deploy both stacks. `network.yaml` creates a single-AZ VPC with a public subnet for a NAT gateway and a private subnet for the instance. Use this path if you don't already have a VPC with private subnets.
+- **Standalone VPC:** deploy both stacks. `network.yaml` creates a VPC with one NAT gateway and private subnets in up to four AZs, so the instance can move between AZs; see [Network](network.md). Use this path if you don't already have a VPC with private subnets.
 - **Existing VPC:** deploy only `compute.yaml`, into a private subnet that already has outbound HTTPS through a NAT or transit gateway.
 
 Each stack's template and parameter files are in `stacks/network/` and `stacks/compute/`. The scripts to deploy, connect, and tear down are in `scripts/`. Run all commands from the repo root.
@@ -36,41 +36,31 @@ Each stack's template and parameter files are in `stacks/network/` and `stacks/c
 | File | Committed | Contents |
 |---|---|---|
 | `stacks/network/network-params.example.json` | yes | template for the network parameters |
-| `stacks/network/network-params.json` | no, gitignored | your AZ for the standalone VPC |
+| `stacks/network/network-params.json` | no, gitignored | your AZs for the standalone VPC |
 | `stacks/compute/compute-params.example.json` | yes | template for the compute parameters |
-| `stacks/compute/compute-params.json` | no, gitignored | your compute parameters, including the API key |
+| `stacks/compute/compute-params.json` | no, gitignored | your compute parameters: VPC, subnet, AMI, and model profile |
 
 ### Compute parameters
 
-Create `compute-params.json` with a new random API key and the current Deep Learning AMI:
+Create `compute-params.json` with the current Deep Learning AMI:
 
 ```bash
-umask 077
 AMI=$(aws ssm get-parameter --region us-west-2 \
   --name /aws/service/deeplearning/ami/x86_64/base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id \
   --query Parameter.Value --output text)
-jq --arg k "$(openssl rand -hex 32)" --arg a "$AMI" \
-  'map(if .ParameterKey=="ApiKey" then .ParameterValue=$k
-       elif .ParameterKey=="ImageId" then .ParameterValue=$a else . end)' \
+jq --arg a "$AMI" 'map(if .ParameterKey=="ImageId" then .ParameterValue=$a else . end)' \
   stacks/compute/compute-params.example.json > stacks/compute/compute-params.json
 ```
 
 The AMI stays pinned to that ID until you change it. See [Updating the compute stack](updating-compute.md).
 
+The file also holds the model profile, which defaults to gpt-oss-20b. See [Switching models](switching-models.md).
+
+There's no API key to set. The stack has Secrets Manager generate one, and the scripts read it from there.
+
 ### Availability Zone
 
-Pick an AZ that offers your instance type, since not every AZ offers every type.
-
-On Spot, use placement scores to choose. They rate each AZ from 1 to 10 for how likely a Spot request is to succeed. Check each instance type you plan to use, one at a time:
-
-```bash
-aws ec2 get-spot-placement-scores --region us-west-2 \
-  --instance-types g5.xlarge --target-capacity 1 \
-  --single-availability-zone --region-names us-west-2 \
-  --query "SpotPlacementScores[].[AvailabilityZoneId,Score]" --output table
-```
-
-On-Demand, list the AZs that offer the type:
+Pick an AZ that offers your instance type, since not every AZ offers every type. List the AZs that offer it:
 
 ```bash
 aws ec2 describe-instance-type-offerings --region us-west-2 \
@@ -79,15 +69,26 @@ aws ec2 describe-instance-type-offerings --region us-west-2 \
   --query "InstanceTypeOfferings[].Location" --output text
 ```
 
-Both commands list AZ IDs (like `usw2-az1`), but the templates need AZ names (like `us-west-2a`). The mapping differs between accounts, so look up the name for the ID you chose. For the standalone VPC, write it to `network-params.json`:
+On Spot, also check placement scores. They rate each AZ from 1 to 10 for how likely a Spot request is to succeed, and they say nothing about On-Demand. List at least three instance types, or EC2 returns a low score:
+
+```bash
+aws ec2 get-spot-placement-scores --region us-west-2 \
+  --instance-types g5.xlarge g5.2xlarge g5.4xlarge --target-capacity 1 \
+  --single-availability-zone --region-names us-west-2 \
+  --query "SpotPlacementScores[].[AvailabilityZoneId,Score]" --output table
+```
+
+Both commands list AZ IDs (like `usw2-az1`), but the templates need AZ names (like `us-west-2a`). The mapping differs between accounts, so look up the name for the ID you chose. For the standalone VPC, write it to `network-params.json` as the AZ for the NAT and first private subnet:
 
 ```bash
 ZONE_ID=usw2-az1   # the AZ ID you chose
 AZ=$(aws ec2 describe-availability-zones --region us-west-2 --zone-ids "$ZONE_ID" \
   --query "AvailabilityZones[0].ZoneName" --output text)
-jq --arg az "$AZ" 'map(.ParameterValue=$az)' \
+jq --arg az "$AZ" 'map(if .ParameterKey=="AvailabilityZone" then .ParameterValue=$az else . end)' \
   stacks/network/network-params.example.json > stacks/network/network-params.json
 ```
+
+To move the instance to another AZ later, set `PrivateSubnetAz2`, `PrivateSubnetAz3`, and `PrivateSubnetAz4` in `network-params.json` to other AZ names that offer the instance type. See [Network](network.md).
 
 ## 2a. Deploy: standalone VPC
 
@@ -107,15 +108,18 @@ scripts/deploy.sh compute
 
 ## 3. Check that it works
 
-The first boot pulls the image and downloads the model weights (about 14 GB for gpt-oss-20b). Expect several minutes before the model answers.
+The first boot pulls the vLLM image and downloads the model weights (about 14 GB for gpt-oss-20b). Expect about 10 minutes before the model answers with `RootVolumeThroughput` at 500, or about 20 at 125.
 
-1. **The model has loaded.** Run `scripts/connect.sh shell`, then `sudo docker logs -f vllm` on the instance, and wait for `Application startup complete`. If the session fails with `TargetNotConnected`, the SSM agent hasn't registered yet; wait a minute and retry.
+1. **The model has loaded.** Run `scripts/connect.sh shell`, then `sudo journalctl -u vllm -f` on the instance, and wait for `Application startup complete`. The journal also shows errors from reading the model profile or API key. If the session fails with `TargetNotConnected`, the SSM agent hasn't registered yet; wait a minute and retry.
 2. **The endpoint answers.** Run `scripts/connect.sh` in its own terminal to open the tunnel to port 8000, then run the commands below. If 8000 is taken on your laptop, pass another local port, like `scripts/connect.sh 9000`, and use it in the commands.
 
    ```bash
    curl -i localhost:8000/health
 
-   KEY=$(jq -r '.[] | select(.ParameterKey=="ApiKey").ParameterValue' stacks/compute/compute-params.json)
+   SECRET=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
+     --query "Stacks[0].Outputs[?OutputKey=='ApiKeySecretArn'].OutputValue" --output text)
+   KEY=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id "$SECRET" \
+     --query SecretString --output text)
    curl -s localhost:8000/v1/messages \
      -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
      -d '{"model":"gpt-oss-20b","max_tokens":256,"messages":[{"role":"user","content":"Reply with OK."}]}'
@@ -138,11 +142,11 @@ aws ec2 stop-instances  --region us-west-2 --instance-ids $INSTANCE_ID
 aws ec2 start-instances --region us-west-2 --instance-ids $INSTANCE_ID
 ```
 
-The model reloads on every start, so expect a few minutes after the instance shows `running`. On Spot, a start can fail; see [Spot behavior](../README.md#spot-behavior).
+The model reloads on every start, using the model profile deployed at that time, so expect a few minutes after the instance shows `running`. On Spot, a start can fail; see [Spot behavior](../README.md#spot-behavior).
 
 ### Updating the stack
 
-To change a parameter or move to a newer AMI, see [Updating the compute stack](updating-compute.md). Any change replaces the instance.
+To change the model, see [Switching models](switching-models.md); it doesn't replace the instance. For other parameters or a newer AMI, see [Updating the compute stack](updating-compute.md).
 
 ### Teardown
 
@@ -150,4 +154,4 @@ To change a parameter or move to a newer AMI, see [Updating the compute stack](u
 scripts/teardown.sh
 ```
 
-After you confirm, it cancels the Spot request, deletes the compute stack, then deletes the network stack if there is one. It finishes by warning you about any Spot request still open in the region.
+After you confirm, it cancels the Spot request if there is one, deletes the compute stack (including the model profile and the API key secret), then deletes the network stack if there is one. It finishes by warning you about any Spot request still open in the region.
