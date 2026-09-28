@@ -1,6 +1,6 @@
 # private-vllm-aws
 
-CloudFormation for a private, self-hosted LLM endpoint on AWS, for coding clients like Claude Code: one GPU EC2 instance running [vLLM in Docker](#why-vllm), reached from your laptop through an AWS Systems Manager (SSM) port-forwarding tunnel. The instance has no public IP and no inbound rules.
+Run a private coding-model endpoint on AWS with CloudFormation: one GPU EC2 instance running [vLLM in Docker](#why-vllm). Connect from your laptop through an AWS Systems Manager (SSM) port-forwarding tunnel. The instance has no public IP and no inbound rules.
 
 The defaults serve gpt-oss-20b on a g5.xlarge Spot instance in us-west-2, using `vllm/vllm-openai:v0.30.0`. You can [switch models](docs/switching-models.md) without replacing the instance; larger models need a g6e.xlarge.
 
@@ -46,7 +46,7 @@ INSTANCE_ID=$(aws cloudformation describe-stacks --region us-west-2 --stack-name
    ```
 
 2. Open the tunnel in a second terminal and leave it running: `scripts/connect.sh`.
-3. From your project directory, run `scripts/claude-local.sh`. See [Claude Code](docs/claude-code.md) for an alias.
+3. Set up the alias in [Claude Code](docs/claude-code.md#run-it), then run `claude-local` from your project directory.
 4. When you're done, close the tunnel and stop the instance:
 
    ```bash

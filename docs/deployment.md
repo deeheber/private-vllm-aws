@@ -57,7 +57,7 @@ The AMI stays pinned to that ID until you change it. See [Updating the compute s
 
 The file also holds the model profile, which defaults to gpt-oss-20b. See [Switching models](switching-models.md).
 
-There's no API key to set. The stack has Secrets Manager generate one, and the scripts read it from there.
+Secrets Manager generates the API key; the scripts read it automatically.
 
 ### Availability Zone
 

@@ -1,6 +1,6 @@
 # Switching models
 
-The model profile is stored in an SSM parameter, not in the instance's launch template. A service on the instance reads it each time it starts vLLM, at boot and when you run `scripts/switch-model.sh`. Switching models restarts only the vLLM container; the instance keeps running and keeps its ID.
+Switching models restarts only the vLLM container; the instance keeps running and keeps its ID. A service on the instance reads the model profile from an SSM parameter at boot and when you run `scripts/switch-model.sh`.
 
 ## Switch
 
@@ -25,7 +25,7 @@ These values in `stacks/compute/compute-params.json` make up the profile:
 | `MaxModelLen` | The context window, `--max-model-len`. |
 | `ExtraVllmArgs` | Any other `vllm serve` flags, split like a shell command line. Can be empty. |
 
-`scripts/claude-local.sh` asks the running server for the model name and context window, so it follows a switch with no changes.
+`scripts/claude-local.sh` detects the running model and context window automatically; no client changes are needed.
 
 ## If the new model doesn't start
 

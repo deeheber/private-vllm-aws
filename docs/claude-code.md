@@ -11,11 +11,15 @@ The Claude Code CLI can use the vLLM endpoint in place of Anthropic's hosted mod
 
 ## Run it
 
+From the private-vllm-aws repo root:
+
 ```bash
 scripts/claude-local.sh
 ```
 
-This starts a normal interactive Claude Code session in your current directory, using the model on your instance. It passes its arguments through to `claude`, so `scripts/claude-local.sh -p "..."` runs a single prompt headless. If the tunnel uses another local port, set `VLLM_LOCAL_PORT`, like `VLLM_LOCAL_PORT=9000 scripts/claude-local.sh`.
+This starts an interactive Claude Code session in your current directory, using the model on your instance. Arguments pass through to `claude`, so `scripts/claude-local.sh -p "..."` runs a single prompt headless.
+
+If your tunnel is already open on another local port, set `VLLM_LOCAL_PORT` to match it, for example `VLLM_LOCAL_PORT=9000 scripts/claude-local.sh`.
 
 To run it from anywhere as `claude-local`, add an alias to your shell profile:
 
@@ -23,7 +27,9 @@ To run it from anywhere as `claude-local`, add an alias to your shell profile:
 alias claude-local=/path/to/private-vllm-aws/scripts/claude-local.sh
 ```
 
-The script reads the API key from the stack's Secrets Manager secret, and the model name and context window from the running server's `/v1/models`. After you [switch models](switching-models.md), the next session follows automatically. Plain `claude` keeps using your normal login.
+Replace `/path/to/private-vllm-aws` with your checkout path. Open a new terminal or reload your shell profile, then run `claude-local` from the project directory you want to work in.
+
+The script reads the API key from the stack's Secrets Manager secret, and the model name and context window from the running server's `/v1/models`. After a [model switch](switching-models.md), the next session uses the new model. Plain `claude` keeps using your normal login.
 
 In the session, `/status` should show the `http://localhost:<port>` base URL, an auth token, and the served model name.
 

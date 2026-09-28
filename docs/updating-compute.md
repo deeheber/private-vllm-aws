@@ -11,7 +11,7 @@ A replacement means:
 - **A new instance ID.** `scripts/connect.sh` looks it up each time, but re-run the `INSTANCE_ID=` lookup in [Daily use](../README.md#daily-use) for any commands you keep around.
 - **On Spot, cancelling the Spot request first.** `deploy.sh` does this for you; see [Why the Spot request gets cancelled](#why-the-spot-request-gets-cancelled).
 
-Batch replacing changes into one update where you can, for example a new AMI and a new instance type together, so the instance is replaced once.
+Combine changes that replace the instance, such as a new AMI and instance type, into one update.
 
 ## Steps
 
@@ -48,8 +48,6 @@ A good time to update is when a new vLLM release needs a newer driver, or every 
 
 ## Rotating the API key
 
-To replace the key with a new random one:
-
 ```bash
 SECRET=$(aws cloudformation describe-stacks --region us-west-2 --stack-name vllm-compute \
   --query "Stacks[0].Outputs[?OutputKey=='ApiKeySecretArn'].OutputValue" --output text)
@@ -59,7 +57,7 @@ aws secretsmanager put-secret-value --region us-west-2 --secret-id "$SECRET" \
 scripts/switch-model.sh
 ```
 
-vLLM reads the key when it starts, so the restart is what makes the new key take effect. `scripts/claude-local.sh` reads the key each time it runs.
+`scripts/switch-model.sh` restarts vLLM so it loads the new key. `scripts/claude-local.sh` reads the key each time it runs.
 
 ## Why the Spot request gets cancelled
 
